@@ -1,0 +1,2 @@
+ALTER TABLE `OrderStatusLog`
+  ADD COLUMN `isUndo` BOOLEAN NOT NULL DEFAULT false;
