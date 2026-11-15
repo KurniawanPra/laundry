@@ -30,54 +30,58 @@ Aplikasi web kasir dan pelacakan operasional laundry. Antarmuka berbahasa Indone
 
 ## Persiapan lokal
 
-Persyaratan: Node.js/npm, MySQL (misalnya Laragon), dan database `laundry_db`.
+Persyaratan: Node.js/npm, MySQL (misalnya Laragon), dan database `laundry_db`. Jalankan perintah dari folder root proyek.
 
-1. Pasang dependensi:
+1. Nyalakan MySQL di Laragon (atau layanan MySQL lain), lalu buat database kosong:
 
-   ```bash
+   ```sql
+   CREATE DATABASE laundry_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+   ```
+
+   Jalankan SQL tersebut melalui HeidiSQL, phpMyAdmin, atau konsol MySQL.
+
+2. Pasang dependensi:
+
+   ```powershell
    npm install
    ```
 
-2. Buat `.env` di root proyek. Sesuaikan kredensial MySQL lokal:
+3. Salin template environment ke `.env` menggunakan PowerShell:
 
-   ```env
-   DATABASE_URL="mysql://USER:PASSWORD@127.0.0.1:3306/laundry_db"
+   ```powershell
+   Copy-Item .env.example .env
    ```
 
-3. Terapkan migrasi, buat Prisma Client, dan isi layanan awal:
+   Buka `.env`, lalu sesuaikan `DATABASE_URL` dengan username dan kata sandi MySQL lokal. Isi `OWNER_NAME`, `OWNER_EMAIL`, dan `OWNER_PASSWORD` untuk akun Pemilik. Kata sandi harus minimal 12 karakter. Jika kata sandi MySQL berisi karakter khusus seperti `@`, `:`, `/`, atau `#`, encode karakter tersebut untuk URL.
 
-   ```bash
-   npx prisma migrate deploy
+4. Buat Prisma Client, terapkan migrasi, dan isi data awal:
+
+   ```powershell
    npx prisma generate
+   npx prisma migrate deploy
    npx prisma db seed
    ```
 
-   Migrasi Prisma yang digunakan:
+   Seed membuat layanan dan kecepatan awal serta akun Pemilik dari `.env`. Akun dengan email yang sudah ada tidak ditimpa; mengganti kata sandi di `.env` tidak mereset akun tersebut.
+
+   Migrasi Prisma:
 
    - `20261115003126_init` — skema awal layanan, pelanggan, dan pesanan.
    - `20261115060000_business_workflows` — tambahan alur kerja, pembayaran, akun, dan data operasional secara aditif.
    - `20261115070000_status_undo_marker` — penanda riwayat untuk membedakan perubahan status yang diurungkan.
    - `20261115092200_laundry_speed_tiers` — master kecepatan dan snapshot nama kecepatan pada item order; data item lama dipetakan ke Reguler/Express.
 
-   Migrasi bersifat aditif dan tidak menghapus order lama: status `PENDING` dipetakan ke `QUEUED`, harga item lama disalin sebagai snapshot, dan order lama yang telah lunas diberi catatan pembayaran historis. Migrasi penanda undo dan kecepatan menambah kolom/tabel dengan nilai bawaan aman. Gunakan `prisma migrate deploy` untuk menerapkan migrasi; jangan gunakan reset database pada data operasional.
+   Migrasi bersifat aditif dan tidak menghapus order lama: status `PENDING` dipetakan ke `QUEUED`, harga item lama disalin sebagai snapshot, dan order lama yang telah lunas diberi catatan pembayaran historis. Gunakan `prisma migrate deploy` untuk menerapkan migrasi; jangan reset database yang berisi data operasional.
 
-4. Untuk membuat akun Pemilik pertama kali, tambahkan ke `.env`:
-
-   ```env
-   OWNER_NAME="Pemilik"
-   OWNER_EMAIL="pemilik@example.com"
-   OWNER_PASSWORD="kata-sandi-minimal-12-karakter"
-   ```
-
-   Jalankan `npx prisma db seed` kembali. Akun dengan email yang sudah ada tidak ditimpa. Simpan `.env` secara privat dan jangan masukkan kredensial ke Git.
-
-5. Jalankan aplikasi:
+5. Jalankan server pengembangan:
 
    ```bash
    npm run dev
    ```
 
-   Buka [http://localhost:3000](http://localhost:3000) dan masuk memakai akun Pemilik.
+   Buka [http://localhost:3000](http://localhost:3000), lalu masuk memakai `OWNER_EMAIL` dan `OWNER_PASSWORD` yang diatur di `.env`. Jika port 3000 sudah dipakai, Next.js akan memilih port lain dan menampilkannya di terminal.
+
+   `.env` berisi rahasia lokal dan jangan dimasukkan ke Git. Template `.env.example` hanya berisi placeholder dan boleh dibagikan.
 
 ### Akses melalui ponsel
 
