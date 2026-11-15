@@ -4,7 +4,7 @@ Aplikasi web kasir dan pelacakan operasional laundry. Antarmuka berbahasa Indone
 
 ## Fitur
 
-- **Navigasi sesuai alur laundry**: Dashboard, Transaksi Baru, Pesanan, Pelanggan, Laporan, Data Master yang dapat diperluas, dan Pengaturan. Sidebar menetap di desktop; navigasi bawah tersedia di ponsel.
+- **Navigasi sesuai alur laundry**: Sidebar desktop memuat Dashboard, Pesanan, Pelanggan, Laporan, Data Master yang dapat diperluas, dan Pengaturan. Tombol Transaksi Baru berada di halaman Pesanan; navigasi bawah ponsel memuat Beranda, Pesanan, Pelanggan, dan Lainnya.
 - **Dashboard tindakan**: pesanan siap diambil yang belum lunas, melewati estimasi, dan belum diambil melewati ambang hari.
 - **Transaksi multi-layanan**: data pelanggan, keranjang beberapa layanan, pilihan kecepatan dinamis, jumlah per kg/pcs/m², harga snapshot, estimasi otomatis, catatan, dan pembayaran awal.
 - **Tracking satu arah**: Diterima → Antrian → Dicuci → Dikeringkan → Disetrika → Dikemas → Siap diambil → Selesai. Tahap produksi yang dilewati mengikuti konfigurasi tiap layanan. Status dapat diurungkan oleh petugas yang sama selama delapan detik.

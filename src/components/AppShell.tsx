@@ -189,20 +189,17 @@ export default function AppShell({ user, children }: { user: AppUser; children: 
           {mobileItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
-            const primary = item.href === '/orders/new';
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-xs leading-tight ${
-                  primary ? 'font-semibold text-cyan-900' : active ? 'font-semibold text-cyan-900' : 'text-neutral-700'
-                }`}
+                className={`flex min-h-16 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-xs leading-tight ${active ? 'font-semibold text-cyan-900' : 'text-neutral-700'}`}
               >
-                <span className={`flex h-8 w-10 items-center justify-center rounded-md ${primary ? 'bg-cyan-800 text-white' : active ? 'bg-cyan-50' : ''}`}>
+                <span className={`flex h-8 w-10 items-center justify-center rounded-md ${active ? 'bg-cyan-50' : ''}`}>
                   <Icon size={20} />
                 </span>
-                <span className="text-center">{item.label === 'Dashboard' ? 'Beranda' : item.label === 'Transaksi Baru' ? 'Transaksi' : item.label}</span>
+                <span className="text-center">{item.label === 'Dashboard' ? 'Beranda' : item.label}</span>
               </Link>
             );
           })}
