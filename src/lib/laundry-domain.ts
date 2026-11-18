@@ -12,7 +12,7 @@ export const orderStatuses = [
 
 export type OrderStatus = (typeof orderStatuses)[number];
 export type ProductionStage = 'WASHING' | 'DRYING' | 'IRONING';
-export type UserRole = 'OWNER' | 'CASHIER' | 'WASHER';
+export type UserRole = 'SUPER_OWNER' | 'OWNER' | 'CASHIER' | 'WASHER';
 export type RateType = 'REGULAR' | 'EXPRESS';
 export type PaymentStatus = 'UNPAID' | 'PARTIAL' | 'PAID';
 
@@ -174,7 +174,7 @@ export function validateHandover(input: {
   }
 
   const remaining = getRemainingBalance(input.totalAmount, input.paidAmount);
-  if (remaining > 0 && !(input.allowUnpaid === true && input.role === 'OWNER')) {
+  if (remaining > 0 && !(input.allowUnpaid === true && (input.role === 'OWNER' || input.role === 'SUPER_OWNER'))) {
     throw new DomainError('Tagihan belum lunas. Hanya Pemilik yang dapat menyetujui serah-terima.');
   }
 }

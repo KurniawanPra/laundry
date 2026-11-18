@@ -8,7 +8,13 @@ const uncollectedReadyDaysKey = 'uncollectedReadyDays';
 export async function GET() {
   const auth = await requireApiUser();
   if (auth.response) return auth.response;
-  const setting = await prisma.appSetting.findUnique({ where: { key: uncollectedReadyDaysKey } });
+  const effectiveTenantId = auth.user.tenantId ?? 1;
+  const setting = await prisma.appSetting.findFirst({
+    where: {
+      tenantId: effectiveTenantId,
+      key: uncollectedReadyDaysKey,
+    },
+  });
   return NextResponse.json({
     uncollectedReadyDays: Number(setting?.value ?? 7),
   });
@@ -21,10 +27,17 @@ export async function PATCH(request: Request) {
   if (parsed.response) return parsed.response;
 
   try {
+    const effectiveTenantId = auth.user.tenantId ?? 1;
     const setting = await prisma.appSetting.upsert({
-      where: { key: uncollectedReadyDaysKey },
+      where: {
+        tenantId_key: {
+          tenantId: effectiveTenantId,
+          key: uncollectedReadyDaysKey,
+        },
+      },
       update: { value: String(parsed.data.uncollectedReadyDays), updatedById: auth.user.id },
       create: {
+        tenantId: effectiveTenantId,
         key: uncollectedReadyDaysKey,
         value: String(parsed.data.uncollectedReadyDays),
         updatedById: auth.user.id,

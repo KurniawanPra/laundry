@@ -124,11 +124,12 @@ export default function OrderDetailClient({ orderId }: { orderId: string }) {
     : [];
   const nextStatus = order ? getNextOrderStatus(order.status, workflowStages) : null;
   const role = user.role;
-  const canChangeNextStatus = role === 'OWNER' ||
+  const isOwnerOrSuper = role === 'SUPER_OWNER' || role === 'OWNER';
+  const canChangeNextStatus = isOwnerOrSuper ||
     (role === 'WASHER' && ['WASHING', 'DRYING', 'IRONING', 'PACKAGED'].includes(nextStatus ?? '')) ||
     (role === 'CASHIER' && ['QUEUED', 'READY', 'COMPLETED'].includes(nextStatus ?? ''));
-  const canTakePayment = role === 'OWNER' || role === 'CASHIER';
-  const canManageComplaints = role === 'OWNER' || role === 'CASHIER';
+  const canTakePayment = isOwnerOrSuper || role === 'CASHIER';
+  const canManageComplaints = isOwnerOrSuper || role === 'CASHIER';
 
   async function updateStatus(status: OrderStatus) {
     if (!order) return;
@@ -409,7 +410,7 @@ export default function OrderDetailClient({ orderId }: { orderId: string }) {
                 ))}
               </ul>
             )}
-            {['OWNER', 'CASHIER'].includes(role) && (
+            {['SUPER_OWNER', 'OWNER', 'CASHIER'].includes(role) && (
               <form onSubmit={addComplaint} className="mt-4 grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)_auto]">
                 <label className="text-sm font-medium">Jenis komplain
                   <select value={complaintType} onChange={(event) => setComplaintType(event.target.value)} className="mt-1 min-h-11 w-full border border-neutral-400 bg-white px-2 text-sm">
@@ -446,7 +447,7 @@ export default function OrderDetailClient({ orderId }: { orderId: string }) {
                     <label className="block text-sm font-medium">Atau nama pengambil
                       <input value={pickedUpBy} onChange={(event) => setPickedUpBy(event.target.value)} className="mt-1 min-h-11 w-full border border-neutral-400 px-3 text-base" />
                     </label>
-                    {remaining > 0 && role === 'OWNER' && (
+                    {remaining > 0 && isOwnerOrSuper && (
                       <label className="flex min-h-11 items-center gap-2 text-sm">
                         <input type="checkbox" checked={allowUnpaid} onChange={(event) => setAllowUnpaid(event.target.checked)} />
                         Izinkan serah-terima dengan sisa tagihan {money(remaining)}
@@ -461,7 +462,7 @@ export default function OrderDetailClient({ orderId }: { orderId: string }) {
             )}
             {!nextStatus && <p className="text-sm text-neutral-600">{order.status === 'CANCELLED' ? 'Pesanan telah dibatalkan.' : 'Pesanan telah selesai.'}</p>}
             {nextStatus && !canChangeNextStatus && <p className="text-sm text-neutral-600">Peran Anda tidak dapat mengubah status ke tahap berikutnya.</p>}
-            {role === 'OWNER' && !['COMPLETED', 'CANCELLED'].includes(order.status) && (
+            {isOwnerOrSuper && !['COMPLETED', 'CANCELLED'].includes(order.status) && (
               <div className="space-y-2 border-t border-neutral-200 pt-4">
                 <label className="block text-sm font-medium">Alasan pembatalan
                   <input value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} className="mt-1 min-h-11 w-full border border-neutral-400 px-3 text-base" />

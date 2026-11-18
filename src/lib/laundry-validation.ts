@@ -38,6 +38,7 @@ export const createOrderSchema = z.object({
   paymentStatus: z.enum(['UNPAID', 'PAID']).optional(),
   paymentMethod: legacyPaymentMethod.optional(),
   notes: z.string().trim().max(5000).optional(),
+  storeId: z.coerce.number().int().positive().optional(),
 }).refine(
   (input) => Boolean(input.customer || (input.customerName && input.customerPhone)),
   { message: 'Nama dan nomor telepon pelanggan wajib diisi.', path: ['customer'] },
@@ -109,8 +110,9 @@ export const customerCreateSchema = z.object({
 export const staffInputSchema = z.object({
   name: z.string().trim().min(1).max(191),
   email: z.string().trim().email().max(191),
-  password: z.string().min(12).max(128),
-  role: z.enum(['CASHIER', 'WASHER']),
+  password: z.string().min(8).max(128),
+  role: z.enum(['SUPER_OWNER', 'OWNER', 'CASHIER', 'WASHER']),
+  storeId: z.coerce.number().int().positive().optional(),
 });
 
 export const staffUpdateSchema = z.object({
@@ -149,6 +151,20 @@ export const customerUpdateSchema = z.object({
   phone: customerPhone.optional(),
   address: z.string().trim().max(5000).nullable().optional(),
 }).refine(
+  (input) => Object.values(input).some((value) => value !== undefined),
+  { message: 'Tidak ada perubahan yang dikirim.' },
+);
+
+export const storeInputSchema = z.object({
+  name: z.string().trim().min(1, 'Nama toko wajib diisi.').max(191),
+  code: z.string().trim().min(2, 'Kode toko minimal 2 karakter.').max(32).regex(/^[A-Za-z0-9_-]+$/, 'Kode toko hanya boleh huruf, angka, strip, dan underscore.'),
+  address: z.string().trim().max(1000).optional(),
+  phone: z.string().trim().max(32).optional(),
+  ownerId: z.coerce.number().int().positive().nullable().optional(),
+  isActive: z.boolean().default(true),
+});
+
+export const storeUpdateSchema = storeInputSchema.partial().refine(
   (input) => Object.values(input).some((value) => value !== undefined),
   { message: 'Tidak ada perubahan yang dikirim.' },
 );

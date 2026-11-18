@@ -35,6 +35,7 @@ type OrderRow = {
   }[];
   payments: { id: number; amount: number; method: string; paidAt: string }[];
   statusLogs: { toStatus: OrderStatus; changedAt: string }[];
+  store?: { id: number; name: string; code: string } | null;
 };
 
 const statuses: { value: OrderStatus; label: string; icon: typeof Receipt }[] = [
@@ -82,7 +83,20 @@ export default function OrdersClient() {
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [uncollectedReadyDays, setUncollectedReadyDays] = useState(7);
   const [isOnline, setIsOnline] = useState(true);
+  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const refreshLock = useRef(false);
+
+  useEffect(() => {
+    if (openMenuId === null) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest('[data-order-menu]')) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openMenuId]);
 
   const refreshOrders = useCallback(async () => {
     if (refreshLock.current) return;
@@ -156,7 +170,7 @@ export default function OrdersClient() {
     });
   }, [orders, search, statusFilter, paymentFilter, specialFilter, lastSynced, uncollectedReadyDays]);
 
-  const canCreate = user.role === 'OWNER' || user.role === 'CASHIER';
+  const canCreate = user.role === 'SUPER_OWNER' || user.role === 'OWNER' || user.role === 'CASHIER';
 
   function getNextStatus(order: OrderRow) {
     const stages = [...new Set(order.items.flatMap((item) => item.workflowStages.split(',').filter(isProductionStage)))];
@@ -193,10 +207,10 @@ export default function OrdersClient() {
 
       <section className="space-y-4">
         <div className="relative max-w-lg">
-          <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari invoice, pelanggan, atau nomor telepon" className="min-h-11 w-full border border-neutral-400 bg-white pl-12 pr-3 text-base outline-none focus:border-cyan-800 focus:ring-2 focus:ring-cyan-800/20" />
+          <Search size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 dark:text-neutral-400" />
+          <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari invoice, pelanggan, atau nomor telepon" className="min-h-11 w-full rounded-[var(--radius-control)] border border-neutral-400 bg-white pl-12 pr-3 text-base text-neutral-900 outline-none focus:border-cyan-800 focus:ring-2 focus:ring-cyan-800/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-cyan-500 dark:focus:ring-cyan-500/20" />
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filter tahap cucian">
+        <div className="flex gap-2 overflow-x-auto pb-2 pt-1 scroll-smooth [-ms-overflow-style:none] [scrollbar-width:thin]" role="tablist" aria-label="Filter tahap cucian">
           {[{ value: 'ALL', label: 'Semua', icon: Receipt }, ...statuses].map((status) => {
             const active = statusFilter === status.value;
             const Icon = status.icon;
@@ -207,42 +221,66 @@ export default function OrdersClient() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => { setStatusFilter(status.value); setSpecialFilter(''); }}
-                className={`flex min-h-11 shrink-0 items-center gap-2 border px-3 text-sm ${active ? 'border-cyan-800 bg-cyan-50 font-semibold text-cyan-950' : 'border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100'}`}
+                className={`group flex min-h-11 shrink-0 items-center gap-2 rounded-[var(--radius-control)] border px-3 text-sm transition ${
+                  active
+                    ? 'border-cyan-700 bg-cyan-700 font-semibold text-white shadow-sm ring-2 ring-cyan-700/20 dark:border-cyan-600 dark:bg-cyan-600 dark:text-white dark:ring-cyan-500/20'
+                    : 'border-neutral-300 bg-white text-neutral-700 hover:border-cyan-600 hover:bg-cyan-50/60 hover:text-cyan-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:border-cyan-500 dark:hover:bg-cyan-950/40 dark:hover:text-cyan-200'
+                }`}
               >
-                <Icon size={16} />
-                {status.label}
-                <span className="tabular-nums text-xs">{counts[status.value] ?? 0}</span>
+                <Icon size={16} className={active ? 'text-white' : 'text-neutral-500 transition-colors group-hover:text-cyan-700 dark:text-neutral-400 dark:group-hover:text-cyan-400'} />
+                <span>{status.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs tabular-nums font-semibold ${
+                  active
+                    ? 'bg-white/25 text-white'
+                    : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                }`}>
+                  {counts[status.value] ?? 0}
+                </span>
               </button>
             );
           })}
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <label htmlFor="payment-filter" className="text-sm font-medium">Pembayaran</label>
-          <select id="payment-filter" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value)} className="min-h-11 border border-neutral-400 bg-white px-3 text-base">
-            <option value="ALL">Semua</option>
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <label htmlFor="payment-filter" className="text-sm font-medium text-neutral-900 dark:text-neutral-200">Pembayaran:</label>
+          <select
+            id="payment-filter"
+            value={paymentFilter}
+            onChange={(event) => setPaymentFilter(event.target.value)}
+            className="min-h-10 rounded-[var(--radius-control)] border border-neutral-300 bg-white px-3 text-sm font-medium text-neutral-900 outline-none transition hover:border-cyan-600 focus:border-cyan-700 focus:ring-2 focus:ring-cyan-700/20 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-cyan-500 dark:focus:border-cyan-500"
+          >
+            <option value="ALL">Semua Pembayaran</option>
             <option value="unpaid">Belum lunas</option>
             <option value="paid">Lunas</option>
           </select>
-          {specialFilter && <button type="button" onClick={() => setSpecialFilter('')} className="min-h-11 border border-neutral-300 px-3 text-sm">Hapus filter tindakan</button>}
+          {specialFilter && (
+            <button
+              type="button"
+              onClick={() => setSpecialFilter('')}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--radius-control)] border border-cyan-700 bg-cyan-50 px-3 text-xs font-semibold text-cyan-900 transition hover:bg-cyan-100 dark:border-cyan-600 dark:bg-cyan-950/60 dark:text-cyan-300 dark:hover:bg-cyan-900/60"
+            >
+              <X size={14} />
+              Hapus filter tindakan
+            </button>
+          )}
         </div>
       </section>
 
       {loading ? (
         <div aria-label="Memuat pesanan" className="space-y-2">
-          {[0, 1, 2].map((row) => <div key={row} className="h-16 animate-pulse bg-neutral-200" />)}
+          {[0, 1, 2].map((row) => <div key={row} className="h-16 animate-pulse rounded-[var(--radius-control)] bg-neutral-200 dark:bg-neutral-800" />)}
         </div>
       ) : error && orders.length === 0 ? null : visibleOrders.length === 0 ? (
-        <section className="rounded-[var(--radius-control)] border border-neutral-200 bg-white p-8 text-center">
-          <Receipt size={20} className="mx-auto text-neutral-500" />
-          <h2 className="mt-3 font-semibold">{orders.length ? 'Tidak ada pesanan yang cocok' : 'Belum ada pesanan'}</h2>
-          <p className="mt-1 text-sm text-neutral-600">{orders.length ? 'Coba ubah kata pencarian atau filter.' : 'Transaksi baru akan tampil di sini setelah diterima.'}</p>
-          {canCreate && <Link href="/orders/new" className="mt-4 inline-flex min-h-11 items-center border border-cyan-800 px-4 text-sm font-semibold text-cyan-900 hover:bg-cyan-50">Buat transaksi</Link>}
+        <section className="rounded-[var(--radius-control)] border border-neutral-200 bg-white p-8 text-center dark:border-neutral-800 dark:bg-neutral-900">
+          <Receipt size={20} className="mx-auto text-neutral-500 dark:text-neutral-400" />
+          <h2 className="mt-3 font-semibold text-neutral-900 dark:text-neutral-100">{orders.length ? 'Tidak ada pesanan yang cocok' : 'Belum ada pesanan'}</h2>
+          <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{orders.length ? 'Coba ubah kata pencarian atau filter.' : 'Transaksi baru akan tampil di sini setelah diterima.'}</p>
+          {canCreate && <Link href="/orders/new" className="mt-4 inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-cyan-800 px-4 text-sm font-semibold text-cyan-900 hover:bg-cyan-50 dark:border-cyan-600 dark:text-cyan-400 dark:hover:bg-cyan-950/60">Buat transaksi</Link>}
         </section>
       ) : (
         <>
-          <div className="hidden overflow-x-auto rounded-[var(--radius-control)] border border-neutral-200 bg-white lg:block">
+          <div className="hidden min-h-[300px] overflow-x-auto rounded-[var(--radius-control)] border border-neutral-200 bg-white lg:block dark:border-neutral-800 dark:bg-neutral-900">
             <table className="w-full border-collapse text-left text-sm">
-              <thead className="border-b border-neutral-300 bg-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-700">
+              <thead className="border-b border-neutral-300 bg-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-700 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">
                 <tr>
                   <th className="px-3 py-3">Invoice / Pelanggan</th>
                   <th className="px-3 py-3">Layanan</th>
@@ -254,48 +292,95 @@ export default function OrdersClient() {
                   <th className="px-3 py-3">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-200">
-                {visibleOrders.map((order) => (
-                  <tr key={order.id} className="align-top hover:bg-neutral-50">
-                    <td className="px-3 py-3">
-                      <Link href={`/orders/${order.id}`} className="font-semibold text-cyan-900 underline-offset-2 hover:underline">{order.invoiceCode}</Link>
-                      <p className="mt-1">{order.customer.name}</p>
-                      <p className="mt-1 flex items-center gap-1 text-xs text-neutral-600"><Phone size={16} />{order.customer.phone}</p>
-                    </td>
-                    <td className="px-3 py-3">{order.items.map((item) => <p key={item.id}>{item.serviceName} · {item.quantity} {unitLabels[item.unitCode]}</p>)}</td>
-                    <td className="px-3 py-3"><StatusBadge status={order.status} /></td>
-                    <td className="px-3 py-3"><PaymentBadge status={order.paymentStatus} /></td>
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums">{money(order.totalAmount)}</td>
-                    <td className="px-3 py-3">{dateTime(order.estimatedDone)}</td>
-                    <td className="px-3 py-3">{order.rackLocation || '-'}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <Link href={`/orders/${order.id}`} className="inline-flex min-h-11 items-center border border-cyan-800 px-3 text-xs font-semibold text-cyan-900 hover:bg-cyan-50">Buka</Link>
-                        <details className="relative">
-                          <summary aria-label={`Aksi lain ${order.invoiceCode}`} className="flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center border border-neutral-300 hover:bg-neutral-100"><MoreHorizontal size={20} /></summary>
-                          <div className="absolute right-0 top-full z-10 mt-1 w-44 border border-neutral-300 bg-white p-1">
-                            <a href={`https://wa.me/${order.customer.phone.replace(/\D/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Invoice ${order.invoiceCode} - ${order.customer.name}`)}`} target="_blank" rel="noreferrer" className="flex min-h-11 items-center px-3 text-sm hover:bg-neutral-100">Buka WhatsApp</a>
-                            {getNextStatus(order) && <Link href={`/orders/${order.id}`} className="flex min-h-11 items-center px-3 text-sm hover:bg-neutral-100">Lanjutkan proses</Link>}
+              <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                {visibleOrders.map((order, index) => {
+                  const isLast = visibleOrders.length > 1 && index === visibleOrders.length - 1;
+                  return (
+                    <tr key={order.id} className="align-top hover:bg-neutral-50 dark:hover:bg-neutral-800/60">
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <Link href={`/orders/${order.id}`} className="font-semibold text-cyan-900 underline-offset-2 hover:underline dark:text-cyan-400">{order.invoiceCode}</Link>
+                          {order.store && (
+                            <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                              {order.store.code}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-neutral-900 dark:text-neutral-100">{order.customer.name}</p>
+                        <p className="mt-1 flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-400"><Phone size={16} />{order.customer.phone}</p>
+                      </td>
+                      <td className="px-3 py-3 text-neutral-800 dark:text-neutral-200">{order.items.map((item) => <p key={item.id}>{item.serviceName} · {item.quantity} {unitLabels[item.unitCode]}</p>)}</td>
+                      <td className="px-3 py-3"><StatusBadge status={order.status} /></td>
+                      <td className="px-3 py-3"><PaymentBadge status={order.paymentStatus} /></td>
+                      <td className="px-3 py-3 text-right font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">{money(order.totalAmount)}</td>
+                      <td className="px-3 py-3 text-neutral-700 dark:text-neutral-300">{dateTime(order.estimatedDone)}</td>
+                      <td className="px-3 py-3 text-neutral-700 dark:text-neutral-300">{order.rackLocation || '-'}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2">
+                          <Link href={`/orders/${order.id}`} className="inline-flex min-h-11 items-center rounded-[var(--radius-control)] border border-cyan-800 px-3 text-xs font-semibold text-cyan-900 hover:bg-cyan-50 dark:border-cyan-600 dark:text-cyan-400 dark:hover:bg-cyan-950/60">Buka</Link>
+                          <div className="relative" data-order-menu>
+                            <button
+                              type="button"
+                              aria-expanded={openMenuId === order.id}
+                              aria-label={`Aksi lain ${order.invoiceCode}`}
+                              onClick={() => setOpenMenuId((current) => (current === order.id ? null : order.id))}
+                              className="flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-[var(--radius-control)] border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                            >
+                              <MoreHorizontal size={20} />
+                            </button>
+                            {openMenuId === order.id && (
+                              <div
+                                className={`absolute right-0 z-30 w-44 rounded-[var(--radius-control)] border border-neutral-300 bg-white p-1 shadow-lg dark:border-neutral-700 dark:bg-neutral-800 ${
+                                  isLast ? 'bottom-full mb-1' : 'top-full mt-1'
+                                }`}
+                              >
+                                <a
+                                  href={`https://wa.me/${order.customer.phone.replace(/\D/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Invoice ${order.invoiceCode} - ${order.customer.name}`)}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={() => setOpenMenuId(null)}
+                                  className="flex min-h-11 items-center px-3 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700"
+                                >
+                                  Buka WhatsApp
+                                </a>
+                                {getNextStatus(order) && (
+                                  <Link
+                                    href={`/orders/${order.id}`}
+                                    onClick={() => setOpenMenuId(null)}
+                                    className="flex min-h-11 items-center px-3 text-sm text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-neutral-700"
+                                  >
+                                    Lanjutkan proses
+                                  </Link>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        </details>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
           <div className="space-y-3 lg:hidden">
             {visibleOrders.map((order) => (
-              <article key={order.id} className="space-y-3 rounded-[var(--radius-control)] border border-neutral-200 bg-white p-4">
+              <article key={order.id} className="space-y-3 rounded-[var(--radius-control)] border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <Link href={`/orders/${order.id}`} className="font-semibold text-cyan-900 underline-offset-2 hover:underline">{order.invoiceCode}</Link>
-                    <p className="mt-1 truncate text-sm">{order.customer.name}</p>
-                    <p className="mt-1 flex items-center gap-1 text-xs text-neutral-600"><Phone size={16} />{order.customer.phone}</p>
+                    <div className="flex items-center gap-1.5">
+                      <Link href={`/orders/${order.id}`} className="font-semibold text-cyan-900 underline-offset-2 hover:underline dark:text-cyan-400">{order.invoiceCode}</Link>
+                      {order.store && (
+                        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-semibold text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                          {order.store.code}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 truncate text-sm text-neutral-900 dark:text-neutral-100">{order.customer.name}</p>
+                    <p className="mt-1 flex items-center gap-1 text-xs text-neutral-600 dark:text-neutral-400"><Phone size={16} />{order.customer.phone}</p>
                   </div>
-                  <p className="shrink-0 text-right font-semibold tabular-nums">{money(order.totalAmount)}</p>
+                  <p className="shrink-0 text-right font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">{money(order.totalAmount)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2"><StatusBadge status={order.status} /><PaymentBadge status={order.paymentStatus} /></div>
                 <div className="text-sm text-neutral-700">

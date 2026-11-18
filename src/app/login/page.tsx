@@ -4,9 +4,11 @@ import { connection } from 'next/server';
 import LoginForm from '@/components/LoginForm';
 import { getCurrentUser } from '@/lib/auth';
 
+export const instant = false;
+
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-dvh bg-neutral-50" aria-label="Memuat halaman masuk" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-neutral-50 dark:bg-neutral-950" aria-label="Memuat halaman masuk" />}>
       <LoginRedirect />
     </Suspense>
   );

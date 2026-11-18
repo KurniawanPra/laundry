@@ -44,7 +44,11 @@ export async function GET(
     return NextResponse.json({ error: 'ID pesanan tidak valid.' }, { status: 400 });
   }
 
-  const order = await prisma.order.findUnique({ where: { id }, include: orderInclude });
+  const where: Prisma.OrderWhereInput = { id };
+  if (auth.user.role !== 'SUPER_OWNER' || auth.user.tenantId) {
+    where.tenantId = auth.user.tenantId ?? -1;
+  }
+  const order = await prisma.order.findFirst({ where, include: orderInclude });
   if (!order) return NextResponse.json({ error: 'Pesanan tidak ditemukan.' }, { status: 404 });
   return NextResponse.json(order);
 }
@@ -66,8 +70,12 @@ export async function PATCH(
 
   try {
     const updated = await prisma.$transaction(async (transaction) => {
-      const order = await transaction.order.findUnique({
-        where: { id },
+      const orderWhere: Prisma.OrderWhereInput = { id };
+      if (auth.user.role !== 'SUPER_OWNER' || auth.user.tenantId) {
+        orderWhere.tenantId = auth.user.tenantId ?? -1;
+      }
+      const order = await transaction.order.findFirst({
+        where: orderWhere,
         include: {
           items: { select: { workflowStages: true } },
           payments: { select: { amount: true } },
@@ -133,7 +141,7 @@ export async function PATCH(
         throw new ApiError('Pembayaran yang sudah dicatat tidak dapat dihapus.', 409);
       }
 
-      if (paymentToAdd && !['OWNER', 'CASHIER'].includes(auth.user.role)) {
+      if (paymentToAdd && !['SUPER_OWNER', 'OWNER', 'CASHIER'].includes(auth.user.role)) {
         throw new ApiError('Petugas cuci tidak dapat menerima pembayaran.', 403);
       }
       let nextPaidAmount = paidAmount;
@@ -184,7 +192,7 @@ export async function PATCH(
           throw new ApiError('Kasir tidak memiliki izin untuk status produksi ini.', 403);
         }
         if (nextStatus === 'CANCELLED') {
-          if (auth.user.role !== 'OWNER') {
+          if (auth.user.role !== 'OWNER' && auth.user.role !== 'SUPER_OWNER') {
             throw new ApiError('Hanya Pemilik yang dapat membatalkan pesanan.', 403);
           }
           if (!input.cancellationReason) {
@@ -197,7 +205,7 @@ export async function PATCH(
           }
         }
         if (nextStatus === 'COMPLETED') {
-          if (!['OWNER', 'CASHIER'].includes(auth.user.role)) {
+          if (!['SUPER_OWNER', 'OWNER', 'CASHIER'].includes(auth.user.role)) {
             throw new ApiError('Petugas cuci tidak dapat melakukan serah-terima.', 403);
           }
           validateHandover({
@@ -232,7 +240,7 @@ export async function PATCH(
           },
         });
       } else if (input.rackLocation !== undefined) {
-        if (!['OWNER', 'CASHIER'].includes(auth.user.role)) {
+        if (!['SUPER_OWNER', 'OWNER', 'CASHIER'].includes(auth.user.role)) {
           throw new ApiError('Anda tidak memiliki izin mengubah lokasi rak.', 403);
         }
         if (input.rackLocation === null && ['PACKAGED', 'READY'].includes(order.status)) {

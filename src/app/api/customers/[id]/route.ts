@@ -19,6 +19,13 @@ export async function PATCH(
   }
 
   try {
+    const customerWhere: Prisma.CustomerWhereInput = { id };
+    if (auth.user.role !== 'SUPER_OWNER' || auth.user.tenantId) {
+      customerWhere.tenantId = auth.user.tenantId ?? -1;
+    }
+    const target = await prisma.customer.findFirst({ where: customerWhere });
+    if (!target) throw new ApiError('Pelanggan tidak ditemukan.', 404);
+
     const customer = await prisma.customer.update({
       where: { id },
       data: parsed.data,

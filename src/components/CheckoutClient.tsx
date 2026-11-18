@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, LoaderCircle, Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, Command, LoaderCircle, Plus, Trash2 } from 'lucide-react';
 
 type Service = {
   id: number;
@@ -368,7 +368,19 @@ export default function CheckoutClient() {
           <button type="submit" disabled={submitting || !cartDetails.length || servicesLoading || services.length === 0} className="flex min-h-12 w-full items-center justify-center gap-2 bg-cyan-800 px-4 text-sm font-semibold text-white hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-50">
             {submitting ? <><LoaderCircle size={20} className="animate-spin" /> Menyimpan...</> : 'Simpan transaksi'}
           </button>
-          <p className="text-center text-xs text-neutral-600">Tekan Ctrl+Enter atau ⌘+Enter untuk menyimpan.</p>
+          <p className="flex flex-wrap items-center justify-center gap-1.5 text-center text-xs text-neutral-600 dark:text-neutral-400">
+            <span>Tekan</span>
+            <kbd className="rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">Ctrl</kbd>
+            <span>+</span>
+            <kbd className="rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">Enter</kbd>
+            <span>atau</span>
+            <kbd className="inline-flex items-center gap-0.5 rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+              <Command size={10} /> Cmd
+            </kbd>
+            <span>+</span>
+            <kbd className="rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 font-mono text-[11px] text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">Enter</kbd>
+            <span>untuk menyimpan.</span>
+          </p>
         </aside>
       </form>
     </div>

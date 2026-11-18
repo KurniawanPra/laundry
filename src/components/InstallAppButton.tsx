@@ -81,7 +81,7 @@ export default function InstallAppButton() {
         <div role="status" className="absolute right-0 top-full z-50 mt-2 w-72 rounded-[var(--radius-control)] border border-neutral-300 bg-white p-4 text-sm text-neutral-800 shadow-md">
           <div className="flex items-start gap-3">
             {isIos && <Smartphone size={20} className="mt-0.5 shrink-0 text-cyan-700" />}
-            <p>{error || 'Di Safari, ketuk Bagikan lalu pilih “Tambahkan ke Layar Utama”.'}</p>
+            <p>{error || 'Di Safari, ketuk Bagikan lalu pilih "Tambahkan ke Layar Utama".'}</p>
             <button
               type="button"
               onClick={() => { setShowIosHelp(false); setError(''); }}

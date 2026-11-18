@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { ApiError, errorResponse, parseJsonBody, requireApiUser } from '@/lib/api-utils';
 import { calculateOrderTotals, DomainError, getPaymentStatus, getSpeedPricing } from '@/lib/laundry-domain';
+import { checkMonthlyOrderQuota } from '@/lib/entitlements';
 import { prisma } from '@/lib/prisma';
 import { createOrderSchema } from '@/lib/laundry-validation';
 
@@ -22,6 +23,7 @@ const orderInclude = Prisma.validator<Prisma.OrderInclude>()({
     include: { handledBy: { select: { id: true, name: true } } },
     orderBy: { createdAt: 'desc' },
   },
+  store: { select: { id: true, name: true, code: true } },
 });
 
 export async function GET() {
@@ -29,7 +31,20 @@ export async function GET() {
   if (auth.response) return auth.response;
 
   try {
+    const isGlobalSuperOwner = auth.user.role === 'SUPER_OWNER' && auth.user.activeStoreId === null;
+    const where: Prisma.OrderWhereInput = {};
+    if (auth.user.role !== 'SUPER_OWNER' || auth.user.tenantId) {
+      where.tenantId = auth.user.tenantId ?? -1;
+    }
+    if (auth.user.activeStoreId) {
+      where.storeId = auth.user.activeStoreId;
+    } else if (!isGlobalSuperOwner) {
+      const allowedStoreIds = auth.user.stores.map((s) => s.id);
+      where.storeId = { in: allowedStoreIds };
+    }
+
     const orders = await prisma.order.findMany({
+      where,
       include: orderInclude,
       orderBy: { createdAt: 'desc' },
     });
@@ -105,18 +120,38 @@ export async function POST(request: Request) {
       throw new DomainError('Pembayaran awal tidak boleh melebihi total tagihan.');
     }
 
+    const targetStoreId = input.storeId ?? auth.user.activeStoreId ?? (auth.user.stores[0]?.id ?? 1);
     const invoiceCode = `INV-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${randomBytes(3).toString('hex').toUpperCase()}`;
     const estimatedDone = new Date(Date.now() + totals.durationHrs * 60 * 60 * 1000);
+
+    const tenantId = auth.user.tenantId;
+    if (tenantId) {
+      const quota = await checkMonthlyOrderQuota(tenantId);
+      if (!quota.allowed) {
+        throw new DomainError(
+          `Batas kuota order bulanan (${quota.limit}) untuk paket Anda telah tercapai. Silakan upgrade paket untuk membuat pesanan baru.`,
+        );
+      }
+    }
+    const effectiveTenantId = tenantId ?? 1;
+
     const created = await prisma.$transaction(async (transaction) => {
       const customer = await transaction.customer.upsert({
-        where: { phone },
+        where: {
+          tenantId_phone: {
+            tenantId: effectiveTenantId,
+            phone,
+          },
+        },
         update: { name },
-        create: { name, phone },
+        create: { name, phone, storeId: targetStoreId, tenantId: effectiveTenantId },
       });
       const order = await transaction.order.create({
         data: {
+          tenantId: effectiveTenantId,
           invoiceCode,
           customerId: customer.id,
+          storeId: targetStoreId,
           createdById: auth.user.id,
           status: 'RECEIVED',
           paymentStatus: 'UNPAID',
@@ -125,6 +160,7 @@ export async function POST(request: Request) {
           estimatedDone,
           items: {
             create: lines.map((line, index) => ({
+              tenantId: effectiveTenantId,
               serviceId: line.service.id,
               serviceName: line.service.name,
               unitCode: line.service.unitCode,
@@ -140,12 +176,19 @@ export async function POST(request: Request) {
         },
       });
       await transaction.orderStatusLog.create({
-        data: { orderId: order.id, fromStatus: null, toStatus: 'RECEIVED', staffId: auth.user.id },
+        data: {
+          tenantId: effectiveTenantId,
+          orderId: order.id,
+          fromStatus: null,
+          toStatus: 'RECEIVED',
+          staffId: auth.user.id,
+        },
       });
       if (requestedInitialPayment > 0) {
         const method = input.initialPayment?.method ?? input.paymentMethod ?? 'CASH';
         await transaction.payment.create({
           data: {
+            tenantId: effectiveTenantId,
             orderId: order.id,
             staffId: auth.user.id,
             amount: requestedInitialPayment,

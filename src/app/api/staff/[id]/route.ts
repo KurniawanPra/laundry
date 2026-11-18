@@ -20,7 +20,11 @@ export async function PATCH(
   const data = parsed.data;
 
   try {
-    const target = await prisma.user.findUnique({ where: { id } });
+    const userWhere: Prisma.UserWhereInput = { id };
+    if (auth.user.role !== 'SUPER_OWNER' || auth.user.tenantId) {
+      userWhere.tenantId = auth.user.tenantId ?? -1;
+    }
+    const target = await prisma.user.findFirst({ where: userWhere });
     if (!target) throw new ApiError('Akun petugas tidak ditemukan.', 404);
     if (target.id === auth.user.id && (data.isActive === false || data.role && data.role !== 'OWNER')) {
       throw new ApiError('Anda tidak dapat menonaktifkan atau menurunkan peran akun sendiri.', 400);

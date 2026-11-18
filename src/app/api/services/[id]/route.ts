@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { errorResponse, parseJsonBody, requireApiUser, ApiError } from '@/lib/api-utils';
 import { prisma } from '@/lib/prisma';
 import { serviceInputSchema } from '@/lib/laundry-validation';
@@ -22,7 +23,11 @@ export async function PATCH(
 
   try {
     const service = await prisma.$transaction(async (transaction) => {
-      const existing = await transaction.service.findUnique({ where: { id } });
+      const serviceWhere: Prisma.ServiceWhereInput = { id };
+      if (auth.user.role !== 'SUPER_OWNER' || auth.user.tenantId) {
+        serviceWhere.tenantId = auth.user.tenantId ?? -1;
+      }
+      const existing = await transaction.service.findFirst({ where: serviceWhere });
       if (!existing) throw new ApiError('Layanan tidak ditemukan.', 404);
       await transaction.service.update({
         where: { id },

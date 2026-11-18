@@ -15,6 +15,6 @@ export default function SettingsPage() {
 async function AuthorizedSettingsPage() {
   await connection();
   const user = await getCurrentUser();
-  if (!user || user.role !== 'OWNER') redirect('/');
+  if (!user || (user.role !== 'OWNER' && user.role !== 'SUPER_OWNER')) redirect('/');
   return <SettingsClient section="settings" />;
 }

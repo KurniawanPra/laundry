@@ -14,6 +14,6 @@ export default function OwnerOnlyBoundary({ children }: { children: ReactNode })
 async function OwnerOnlyContent({ children }: { children: ReactNode }) {
   await connection();
   const user = await getCurrentUser();
-  if (!user || user.role !== 'OWNER') redirect('/');
+  if (!user || (user.role !== 'OWNER' && user.role !== 'SUPER_OWNER')) redirect('/');
   return children;
 }

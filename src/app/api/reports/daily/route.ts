@@ -12,15 +12,19 @@ export async function GET(request: Request) {
     const { date, start, end } = getBusinessDateRange(
       url.searchParams.get('date') ?? todayBusinessDate(),
     );
+    const tenantFilter: { tenantId?: number } = {};
+    if (auth.user.role !== 'SUPER_OWNER' || auth.user.tenantId) {
+      tenantFilter.tenantId = auth.user.tenantId ?? -1;
+    }
     const [orderCount, paymentTotals, payments] = await Promise.all([
-      prisma.order.count({ where: { createdAt: { gte: start, lt: end } } }),
+      prisma.order.count({ where: { ...tenantFilter, createdAt: { gte: start, lt: end } } }),
       prisma.payment.groupBy({
         by: ['method'],
-        where: { paidAt: { gte: start, lt: end } },
+        where: { ...tenantFilter, paidAt: { gte: start, lt: end } },
         _sum: { amount: true },
       }),
       prisma.payment.findMany({
-        where: { paidAt: { gte: start, lt: end } },
+        where: { ...tenantFilter, paidAt: { gte: start, lt: end } },
         select: { orderId: true },
         distinct: ['orderId'],
       }),

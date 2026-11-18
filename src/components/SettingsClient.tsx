@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, Pencil, Plus, Save, X } from 'lucide-react';
 import { useCurrentUser } from '@/components/AppShell';
+import { Button, Dialog, Input } from '@/components/ui';
 
 type Stage = 'WASHING' | 'DRYING' | 'IRONING';
 type UnitCode = 'PER_KG' | 'PER_PCS' | 'PER_M2';
@@ -63,6 +64,8 @@ export default function SettingsClient({ section = 'settings' }: { section?: Set
   const [staffEmail, setStaffEmail] = useState('');
   const [staffPassword, setStaffPassword] = useState('');
   const [staffRole, setStaffRole] = useState<'CASHIER' | 'WASHER'>('CASHIER');
+  const [staffModalOpen, setStaffModalOpen] = useState(false);
+  const [staffFormError, setStaffFormError] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingService, setSavingService] = useState(false);
   const [savingSpeed, setSavingSpeed] = useState(false);
@@ -207,6 +210,7 @@ export default function SettingsClient({ section = 'settings' }: { section?: Set
   async function createStaff(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSavingStaff(true);
+    setStaffFormError('');
     setError('');
     setNotice('');
     try {
@@ -220,10 +224,12 @@ export default function SettingsClient({ section = 'settings' }: { section?: Set
       setStaffName('');
       setStaffEmail('');
       setStaffPassword('');
+      setStaffRole('CASHIER');
+      setStaffModalOpen(false);
       setNotice('Akun staf berhasil dibuat.');
       await refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Tidak dapat terhubung ke server.');
+      setStaffFormError(caught instanceof Error ? caught.message : 'Tidak dapat terhubung ke server.');
     } finally {
       setSavingStaff(false);
     }
@@ -333,27 +339,171 @@ export default function SettingsClient({ section = 'settings' }: { section?: Set
             )}
           </section>}
 
-          {section === 'users' && <section className="space-y-4">
-            <div><h2 className="text-xl font-semibold">Akun dan peran</h2><p className="text-sm text-neutral-600">Kata sandi awal minimal 12 karakter. Akun nonaktif tidak dapat masuk.</p></div>
-            <form onSubmit={createStaff} className="grid gap-4 rounded-[var(--radius-control)] border border-neutral-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-5">
-              <label className="text-sm font-medium">Nama<input required value={staffName} onChange={(event) => setStaffName(event.target.value)} className="mt-1 min-h-11 w-full border border-neutral-400 px-3 text-base" /></label>
-              <label className="text-sm font-medium">Email<input required type="email" value={staffEmail} onChange={(event) => setStaffEmail(event.target.value)} className="mt-1 min-h-11 w-full border border-neutral-400 px-3 text-base" /></label>
-              <label className="text-sm font-medium">Kata sandi awal<input required type="password" minLength={12} value={staffPassword} onChange={(event) => setStaffPassword(event.target.value)} className="mt-1 min-h-11 w-full border border-neutral-400 px-3 text-base" /></label>
-              <label className="text-sm font-medium">Peran<select value={staffRole} onChange={(event) => setStaffRole(event.target.value as 'CASHIER' | 'WASHER')} className="mt-1 min-h-11 w-full border border-neutral-400 bg-white px-3 text-base"><option value="CASHIER">Kasir</option><option value="WASHER">Petugas cuci</option></select></label>
-              <button type="submit" disabled={savingStaff} className="mt-auto min-h-11 border border-cyan-800 px-4 text-sm font-semibold text-cyan-900 hover:bg-cyan-50 disabled:opacity-50">{savingStaff ? 'Menyimpan...' : 'Tambah staf'}</button>
-            </form>
-            {staff.length === 0 ? <p className="rounded-[var(--radius-control)] border border-neutral-200 bg-white p-6 text-sm text-neutral-600">Belum ada akun staf.</p> : (
-              <div className="overflow-x-auto rounded-[var(--radius-control)] border border-neutral-200 bg-white"><table className="w-full text-left text-sm">
-                <thead className="border-b border-neutral-300 bg-neutral-100 text-xs font-semibold uppercase text-neutral-700"><tr><th className="px-4 py-3">Nama</th><th className="px-4 py-3">Email</th><th className="px-4 py-3">Peran</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Aksi</th></tr></thead>
-                <tbody className="divide-y divide-neutral-200">{staff.map((member) => <tr key={member.id}>
-                  <td className="px-4 py-3 font-medium">{member.name}</td><td className="px-4 py-3">{member.email}</td>
-                  <td className="px-4 py-3"><select aria-label={`Peran ${member.name}`} value={member.role} disabled={member.id === currentUser.id} onChange={(event) => void updateStaff(member.id, { role: event.target.value as Staff['role'] })} className="min-h-11 border border-neutral-400 bg-white px-2"><option value="OWNER">Pemilik</option><option value="CASHIER">Kasir</option><option value="WASHER">Petugas cuci</option></select></td>
-                  <td className="px-4 py-3">{member.isActive ? 'Aktif' : 'Nonaktif'}</td>
-                  <td className="px-4 py-3"><button type="button" disabled={member.id === currentUser.id} onClick={() => void updateStaff(member.id, { isActive: !member.isActive })} className="min-h-11 border border-neutral-400 px-3 text-xs disabled:opacity-50">{member.isActive ? 'Nonaktifkan' : 'Aktifkan'}</button></td>
-                </tr>)}</tbody>
-              </table></div>
-            )}
-          </section>}
+          {section === 'users' && (
+            <section className="space-y-4">
+              <header className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">Akun dan peran</h2>
+                  <p className="text-sm text-neutral-600 dark:text-neutral-400">Kata sandi awal minimal 12 karakter. Akun nonaktif tidak dapat masuk.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => {
+                    setStaffFormError('');
+                    setStaffModalOpen(true);
+                  }}
+                >
+                  <Plus size={20} />
+                  Tambah pengguna
+                </Button>
+              </header>
+
+              <Dialog
+                open={staffModalOpen}
+                title="Tambah Akun Pengguna"
+                onClose={() => {
+                  setStaffModalOpen(false);
+                  setStaffFormError('');
+                }}
+              >
+                <form onSubmit={createStaff} className="space-y-4">
+                  {staffFormError && (
+                    <div role="alert" className="flex items-center gap-2 rounded-[var(--radius-control)] border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/50 dark:text-red-300">
+                      <AlertCircle size={18} />
+                      <span>{staffFormError}</span>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      Nama
+                      <Input
+                        required
+                        maxLength={191}
+                        value={staffName}
+                        onChange={(event) => setStaffName(event.target.value)}
+                        placeholder="Nama lengkap petugas"
+                        className="mt-1"
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      Email
+                      <Input
+                        required
+                        type="email"
+                        maxLength={191}
+                        value={staffEmail}
+                        onChange={(event) => setStaffEmail(event.target.value)}
+                        placeholder="nama@email.com"
+                        className="mt-1"
+                      />
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      Kata sandi awal
+                      <Input
+                        required
+                        type="password"
+                        minLength={12}
+                        value={staffPassword}
+                        onChange={(event) => setStaffPassword(event.target.value)}
+                        placeholder="Minimal 12 karakter"
+                        className="mt-1"
+                      />
+                    </label>
+                    <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">Minimal 12 karakter untuk keamanan akun.</span>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                      Peran
+                      <select
+                        value={staffRole}
+                        onChange={(event) => setStaffRole(event.target.value as 'CASHIER' | 'WASHER')}
+                        className="mt-1 min-h-11 w-full rounded-[var(--radius-control)] border border-neutral-400 bg-white px-3 text-base text-neutral-950 focus:border-cyan-800 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-50 dark:focus:border-cyan-500"
+                      >
+                        <option value="CASHIER">Kasir</option>
+                        <option value="WASHER">Petugas cuci</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        setStaffModalOpen(false);
+                        setStaffFormError('');
+                      }}
+                    >
+                      Batal
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={savingStaff}
+                    >
+                      {savingStaff ? 'Menyimpan...' : 'Simpan pengguna'}
+                    </Button>
+                  </div>
+                </form>
+              </Dialog>
+
+              {staff.length === 0 ? (
+                <p className="rounded-[var(--radius-control)] border border-neutral-200 bg-white p-6 text-sm text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+                  Belum ada akun staf.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-[var(--radius-control)] border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
+                  <table className="w-full text-left text-sm">
+                    <thead className="border-b border-neutral-300 bg-neutral-100 text-xs font-semibold uppercase text-neutral-700 dark:border-neutral-800 dark:bg-neutral-800 dark:text-neutral-300">
+                      <tr>
+                        <th className="px-4 py-3">Nama</th>
+                        <th className="px-4 py-3">Email</th>
+                        <th className="px-4 py-3">Peran</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                      {staff.map((member) => (
+                        <tr key={member.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/60">
+                          <td className="px-4 py-3 font-medium text-neutral-900 dark:text-neutral-100">{member.name}</td>
+                          <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">{member.email}</td>
+                          <td className="px-4 py-3">
+                            <select
+                              aria-label={`Peran ${member.name}`}
+                              value={member.role}
+                              disabled={member.id === currentUser.id}
+                              onChange={(event) => void updateStaff(member.id, { role: event.target.value as Staff['role'] })}
+                              className="min-h-11 rounded-[var(--radius-control)] border border-neutral-400 bg-white px-2 text-neutral-900 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+                            >
+                              <option value="OWNER">Pemilik</option>
+                              <option value="CASHIER">Kasir</option>
+                              <option value="WASHER">Petugas cuci</option>
+                            </select>
+                          </td>
+                          <td className="px-4 py-3 text-neutral-700 dark:text-neutral-300">{member.isActive ? 'Aktif' : 'Nonaktif'}</td>
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              disabled={member.id === currentUser.id}
+                              onClick={() => void updateStaff(member.id, { isActive: !member.isActive })}
+                              className="min-h-11 rounded-[var(--radius-control)] border border-neutral-400 px-3 text-xs text-neutral-800 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                            >
+                              {member.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
 
           {section === 'speeds' && <section className="space-y-4">
             <header className="flex flex-wrap items-center justify-between gap-3">
@@ -379,8 +529,8 @@ export default function SettingsClient({ section = 'settings' }: { section?: Set
                   <thead className="border-b border-neutral-300 bg-neutral-100 text-xs font-semibold uppercase text-neutral-700"><tr><th className="px-4 py-3">Nama</th><th className="px-4 py-3">Pengali tarif</th><th className="px-4 py-3">Pengali durasi</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Aksi</th></tr></thead>
                   <tbody className="divide-y divide-neutral-200">{speeds.map((speed) => <tr key={speed.id}>
                     <td className="px-4 py-3 font-medium">{speed.name}</td>
-                    <td className="px-4 py-3 tabular-nums">{speed.priceMultiplier}×</td>
-                    <td className="px-4 py-3 tabular-nums">{speed.durationMultiplier}×</td>
+                    <td className="px-4 py-3 tabular-nums">{speed.priceMultiplier}x</td>
+                    <td className="px-4 py-3 tabular-nums">{speed.durationMultiplier}x</td>
                     <td className="px-4 py-3">{speed.isActive ? 'Aktif' : 'Nonaktif'}</td>
                     <td className="px-4 py-3"><div className="flex gap-2"><button type="button" onClick={() => editSpeed(speed)} className="inline-flex min-h-11 items-center gap-2 border border-neutral-400 px-3 text-xs hover:bg-neutral-100"><Pencil size={16} />Ubah</button><button type="button" onClick={() => void updateSpeed(speed)} className="min-h-11 border border-neutral-400 px-3 text-xs">{speed.isActive ? 'Nonaktifkan' : 'Aktifkan'}</button></div></td>
                   </tr>)}</tbody>

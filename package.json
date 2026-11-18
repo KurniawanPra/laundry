@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "tsx --test src/lib/laundry-domain.test.ts",
+    "test": "tsx --test src/lib/laundry-domain.test.ts src/lib/tenant-isolation.test.ts",
     "lint": "eslint",
     "postinstall": "prisma skills sync || exit 0"
   },
